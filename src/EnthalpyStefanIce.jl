@@ -1,5 +1,7 @@
 module EnthalpyStefanIce
 
+using SparseArrays
+
 # Write your package code here.
 
 #= Runs a mushy sea ice thermodynamic model using the Stefan number
@@ -23,20 +25,44 @@ function runStefanModel(stefan)
     # time information
     totaltime = 20              # total time
     dt        = (1/2.5)*(dy.^2) # timestep
-    Nt        = totaltime/dt    # total timesteps
+    Nt        = round(Int, totaltime/dt)    # total timesteps
 
-    kup    = k[2:N] # thermal conductivity on i+1
-    kdown  = k[1:(N-1)] # thermal conductivity on i-1
-    Trans  = (2/dy) ./ ((1./kdown)+(1./kup)) # transmissability as harmonic average 
+    kup    = k[2:N]                              # thermal conductivity on i+1
+    kdown  = k[1:(N-1)]                          # thermal conductivity on i-1
+    Trans  = (2/dy) ./ ((1 ./ kdown)+(1 ./ kup)) # transmissability as harmonic average 
     Trans1 = (2/dy)*k[1]
-    TransN = (2/dy)*k[N] # transmissability at 1 and N
-    Tup    = [Trans, TransN] # i+1 transmissability to build matrix
-    Tdown  = [Trans1, Trans] # i-1 transmissability to build matrix
+    TransN = (2/dy)*k[N]                         # transmissability at 1 and N
+    Tup    = push!(deepcopy(Trans), TransN)                # i+1 transmissability to build matrix
+    Tdown  = pushfirst!(deepcopy(Trans), Trans1)           # i-1 transmissability to build matrix
 
+    # derivative matrix
+    M_i = append!(collect(2:N), collect(1:N), collect(1:(N-1)))
+    M_j = append!(collect(1:(N-1)), collect(1:N), collect(2:N))
+    M_v = append!(deepcopy(Trans), deepcopy(-(Tup+Tdown)), deepcopy(Trans))
+    M   = sparse(M_i, M_j, M_v);
 
-    #M = sparse([2:N, 1:N, 1:(N-1)],[1:(N-1), 1:N, 2:N],[Trans, -(Tup+Tdown), Trans]); % derivative matrix
-    #bcv = zeros(size(y))'; bcv(1) = -1*Trans1; bcv(N) = 0*TransN; % boundary conditions vectory
+    # boundary conditions vector
+    bcv    = zeros(size(y))
+    bcv[1] = -1*Trans1
+    bcv[N] = 0*TransN
 
+    # solve
+    initial_enthalpy = stefan .* ones(size(y)); # start with enthalpy = Stefan (all liquid)
+    # forward euler
+    enthalpy = initial_enthalpy
+    a = zeros(Nt)
+    t = zeros(Nt) # initialize
+    
+    for i in 1:Nt
+        t[i]     = i*dt; # time 
+        theta    = min.(enthalpy,0); # temperature
+        enthalpy = enthalpy+(dt./dy)*(M*theta+bcv); # step equation
+        if minimum(enthalpy) <= 0
+            a[i] = maximum(y[enthalpy .<= 0]); # determine location of ice-water interface
+        end
+    end
+
+    return a
 end
 
 end
