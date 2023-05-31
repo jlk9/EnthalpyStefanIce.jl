@@ -1,6 +1,6 @@
 module EnthalpyStefanIce
 
-using SparseArrays
+using Plots, Roots, SparseArrays, SpecialFunctions
 
 # Write your package code here.
 
@@ -62,7 +62,23 @@ function runStefanModel(stefan)
         end
     end
 
-    return a
+    return a, t, L
+end
+
+function plotStefanModel!(a, t, L, stefan)
+
+    plot(t, a ./ L, label="enthalpy fvm", lc="black")
+    plot!(t, sqrt.((2/stefan).*t)./L, label="large St scaling", lc=:blue)
+
+    fλ(x) = (1 / stefan) - sqrt(π).*x.*exp.(x.^2).*erf.(x)
+    λ     = find_zero(fλ, 1.0)
+
+    plot!(t, (2λ/L).*sqrt.(t), label="stefan problem", lc=:red)
+
+    title!("Enthalpy Stefan Comparison")
+    xlabel!("Time, t")
+    ylabel!("Ice thickness, a/L")
+
 end
 
 end
