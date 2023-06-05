@@ -10,7 +10,7 @@ Inputs:
 stefan  stefan number defined as Latent heat / sensible heat (L/cp*DeltaT), usually 10.0
 
 =#
-function runStefanModel(stefan)
+function run_stefan_model(stefan)
 
     # quick finite volume
     L       = 2                         # box size 
@@ -65,7 +65,7 @@ function runStefanModel(stefan)
     return a, t, L
 end
 
-function plotStefanModel!(a, t, L, stefan)
+function plot_stefan_model(a, t, L, stefan)
 
     plot(t, a ./ L, label="enthalpy fvm", lc="black")
     plot!(t, sqrt.((2/stefan).*t)./L, label="large St scaling", lc=:blue)
