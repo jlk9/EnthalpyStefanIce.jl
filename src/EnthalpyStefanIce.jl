@@ -73,12 +73,30 @@ function run_stefan_model!(N, Nt, y, M, enthalpy, bcv_start, bcv_end, θ, a, ste
         θ .= min.(enthalpy,0); # temperature
 
         # step equation
-        enthalpy    += M * θ; # TODO: might be quicker to multiply with M.dv, M.ev
-        enthalpy[1] += bcv_start
+        enthalpy    += M * θ;
+        enthalpy[1] += bcv_start # add boundary conditions
         enthalpy[N] += bcv_end
         
-        if minimum(enthalpy) <= 0
-            a[i] = maximum(y[enthalpy .<= 0]); # determine location of ice-water interface
+        # determine location of ice-water interface
+        #=
+        y_temp = y[enthalpy .< 0]
+        if length(y_temp) > 0
+            a[i] = maximum(y_temp);
+        end
+        =#
+
+        # This approach is less concise but faster, can swap to array filtering / maximum above if desired
+        largest_negative = typemin(eltype(enthalpy))
+        largest_negative_index = 0
+        for j in 1:length(y)
+            if enthalpy[j] < 0.0 && enthalpy[j] > largest_negative
+                largest_negative = enthalpy[j]
+                largest_negative_index = j
+            end
+        end
+
+        if largest_negative_index != 0
+            a[i] = y[largest_negative_index]
         end
         
     end
